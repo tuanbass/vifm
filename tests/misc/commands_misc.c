@@ -413,7 +413,7 @@ TEST(find_command, IF(not_windows))
 	assert_success(chdir(TEST_DATA_PATH));
 	strcpy(lwin.curr_dir, test_data);
 
-	assert_success(exec_commands("set findprg='find %s %a %u'", &lwin,
+	assert_success(exec_commands("set findprg='find %s -name %a %u'", &lwin,
 				CIT_COMMAND));
 
 	/* Nothing to repeat. */
