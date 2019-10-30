@@ -106,7 +106,7 @@ static void init_tuioptions(optval_t *val);
 static void init_wordchars(optval_t *val);
 static void load_options_defaults(void);
 static void add_options(void);
-static void load_sort_option_inner(view_t *view, char sort_keys[]);
+static void load_sort_option_inner(view_t *view, signed char sort_keys[]);
 static void aproposprg_handler(OPT_OP op, optval_t val);
 static void autochpos_handler(OPT_OP op, optval_t val);
 static void caseoptions_handler(OPT_OP op, optval_t val);
@@ -192,14 +192,14 @@ static void update_num_type(view_t *view, NumberingType *num_type,
 		NumberingType type, int enable);
 static void sort_global(OPT_OP op, optval_t val);
 static void sort_local(OPT_OP op, optval_t val);
-static void set_sort(view_t *view, char sort_keys[], char order[]);
+static void set_sort(view_t *view, signed char sort_keys[], char order[]);
 static void sortgroups_global(OPT_OP op, optval_t val);
 static void sortgroups_local(OPT_OP op, optval_t val);
 static void set_sortgroups(view_t *view, char **opt, char value[]);
 static void sorting_changed(view_t *view, int defer_slow);
 static void sortorder_global(OPT_OP op, optval_t val);
 static void sortorder_local(OPT_OP op, optval_t val);
-static void set_sortorder(view_t *view, int ascending, char sort_keys[]);
+static void set_sortorder(view_t *view, int ascending, signed char sort_keys[]);
 static void viewcolumns_global(OPT_OP op, optval_t val);
 static void viewcolumns_local(OPT_OP op, optval_t val);
 static void set_viewcolumns(view_t *view, const char view_columns[]);
@@ -404,6 +404,8 @@ static const char *milleroptions_enum[][2] = {
 static const char *sizefmt_enum[][2] = {
 	{ "units:",     "iec (1024) or si (1000) unit size" },
 	{ "precision:", "maximum width of fraction part" },
+	{ "space",      "show separator space" },
+	{ "nospace",    "hide separator space" },
 };
 
 /* Possible values of 'sort' option. */
@@ -1486,7 +1488,7 @@ load_sort_option(view_t *view)
 
 /* Loads sorting related options ("sort" and "sortorder"). */
 static void
-load_sort_option_inner(view_t *view, char sort_keys[])
+load_sort_option_inner(view_t *view, signed char sort_keys[])
 {
 	/* This approximate maximum length also includes "+" or "-" sign and a
 	 * comma (",") between items. */
@@ -1660,20 +1662,11 @@ classify_handler(OPT_OP op, optval_t val)
 
 	if(str_to_classify(val.str_val, type_decs) == 0)
 	{
-		int i;
-
 		assert(sizeof(cfg.type_decs) == sizeof(type_decs) && "Arrays diverged");
 		memcpy(&cfg.type_decs, &type_decs, sizeof(cfg.type_decs));
 
-		/* Reset cached indexes for name-dependent type_decs. */
-		for(i = 0; i < lwin.list_rows; ++i)
-		{
-			lwin.dir_entry[i].name_dec_num = -1;
-		}
-		for(i = 0; i < rwin.list_rows; ++i)
-		{
-			rwin.dir_entry[i].name_dec_num = -1;
-		}
+		ui_view_reset_decor_cache(&lwin);
+		ui_view_reset_decor_cache(&rwin);
 
 		/* 'classify' option affects columns layout, hence views must be reloaded as
 		 * loading list of files performs calculation of filename properties. */
@@ -2321,7 +2314,7 @@ sizefmt_handler(OPT_OP op, optval_t val)
 	char *const new_val = strdup(val.str_val);
 	char *part = new_val, *state = NULL;
 
-	int base = -1, precision = 0;
+	int base = -1, precision = 0, space = 1;
 
 	while((part = split_and_get(part, ',', &state)) != NULL)
 	{
@@ -2351,6 +2344,14 @@ sizefmt_handler(OPT_OP op, optval_t val)
 				break;
 			}
 		}
+		else if(strcmp(part, "space") == 0)
+		{
+			space = 1;
+		}
+		else if(strcmp(part, "nospace") == 0)
+		{
+			space = 0;
+		}
 		else
 		{
 			break_at(part, ':');
@@ -2365,6 +2366,7 @@ sizefmt_handler(OPT_OP op, optval_t val)
 	{
 		cfg.sizefmt.base = base;
 		cfg.sizefmt.precision = precision;
+		cfg.sizefmt.space = space;
 
 		curr_stats.need_update = UT_REDRAW;
 	}
@@ -2386,12 +2388,16 @@ make_sizefmt_value(void)
 	static char value[128];
 	static const optval_t val = { .str_val = value };
 
-	const int len = snprintf(value, sizeof(value), "units:%s",
+	int len = snprintf(value, sizeof(value), "units:%s",
 			cfg.sizefmt.base == 1024 ? "iec" : "si");
 	if(cfg.sizefmt.precision != 0)
 	{
-		snprintf(value + len, sizeof(value) - len, ",precision:%d",
+		len += snprintf(value + len, sizeof(value) - len, ",precision:%d",
 				cfg.sizefmt.precision);
+	}
+	if(cfg.sizefmt.space == 0)
+	{
+		len += snprintf(value + len, sizeof(value) - len, ",nospace");
 	}
 
 	return val;
@@ -2749,16 +2755,16 @@ sort_local(OPT_OP op, optval_t val)
 {
 	/* Make sure we don't sort unsorted custom view on :restart or when it's a
 	 * compare view. */
-	char *const sort = (curr_stats.restart_in_progress ||
-	                    cv_compare(curr_view->custom.type))
-	                 ? ui_view_sort_list_get(curr_view, curr_view->sort)
-	                 : curr_view->sort;
+	signed char *const sort = (curr_stats.restart_in_progress ||
+	                           cv_compare(curr_view->custom.type))
+	                        ? ui_view_sort_list_get(curr_view, curr_view->sort)
+	                        : curr_view->sort;
 	set_sort(curr_view, sort, val.str_val);
 }
 
 /* Sets sorting value for the view. */
 static void
-set_sort(view_t *view, char sort_keys[], char order[])
+set_sort(view_t *view, signed char sort_keys[], char order[])
 {
 	char *part = order, *state = NULL;
 	int key_count = 0;
@@ -2916,7 +2922,7 @@ sortorder_local(OPT_OP op, optval_t val)
 
 /* Updates sorting order for the view. */
 static void
-set_sortorder(view_t *view, int ascending, char sort_keys[])
+set_sortorder(view_t *view, int ascending, signed char sort_keys[])
 {
 	if((ascending ? +1 : -1)*sort_keys[0] < 0)
 	{
@@ -3032,7 +3038,7 @@ map_name(const char name[], void *arg)
 	if(*name == '\0')
 	{
 		const view_t *const view = arg;
-		const char *const sort = ui_view_sort_list_get(view, view->sort);
+		const signed char *const sort = ui_view_sort_list_get(view, view->sort);
 		return (int)get_secondary_key((SortingKey)abs(sort[0]));
 	}
 

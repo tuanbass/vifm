@@ -1,6 +1,6 @@
 dnl Process this file with autoconf to produce a configure script.
 
-AC_INIT(vifm, 0.10, xaizek@posteo.net, vifm, https://vifm.info)
+AC_INIT(vifm, 0.10.1, xaizek@posteo.net, vifm, https://vifm.info)
 AC_CONFIG_SRCDIR(src/vifm.c)
 AC_CONFIG_AUX_DIR(build-aux)
 AC_CONFIG_MACRO_DIR(build-aux/m4)
@@ -39,9 +39,6 @@ case "$host_os" in
         OSX_HOST=
         ;;
 esac
-
-dnl code relies on `char` being `signed char`
-CFLAGS="$CFLAGS -fsigned-char"
 
 dnl pass some CFLAGS to tests (TESTS_CFLAGS is also extended below)
 TESTS_CFLAGS="$CFLAGS"

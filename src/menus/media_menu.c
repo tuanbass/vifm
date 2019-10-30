@@ -27,7 +27,6 @@
 #include "../compat/fs_limits.h"
 #include "../compat/reallocarray.h"
 #include "../modes/dialogs/msg_dialog.h"
-#include "../ui/statusbar.h"
 #include "../ui/ui.h"
 #include "../utils/fs.h"
 #include "../utils/path.h"
@@ -70,6 +69,7 @@ typedef struct
 	char *text;     /* Arbitrary text next to device name (can be NULL). */
 	char **paths;   /* List of paths at which the device is mounted. */
 	int path_count; /* Number of elements in the paths array. */
+	int has_info;   /* Set when text is set via info=. */
 }
 media_info_t;
 
@@ -275,6 +275,7 @@ output_handler(const char line[], void *arg)
 		info->text = NULL;
 		info->paths = NULL;
 		info->path_count = 0;
+		info->has_info = 0;
 	}
 	else if(info_count > 0)
 	{
@@ -282,8 +283,9 @@ output_handler(const char line[], void *arg)
 		if(skip_prefix(&line, "info="))
 		{
 			replace_string(&info->text, line);
+			info->has_info = 1;
 		}
-		else if(skip_prefix(&line, "label="))
+		else if(skip_prefix(&line, "label=") && !info->has_info)
 		{
 			put_string(&info->text, format_str("[%s]", line));
 		}
@@ -405,8 +407,6 @@ mediaprg_mount(const char data[], menu_data_t *m)
 	const char *action = (mount ? "mount" : "unmount");
 	const char *description = (mount ? "Mounting" : "Unmounting");
 
-	ui_sb_msgf("%s %s...", description, path);
-
 	char *escaped_path = shell_like_escape(path, 0);
 	char *cmd = format_str("%s %s %s", cfg.media_prg, action, escaped_path);
 	if(shellout(cmd, PAUSE_NEVER, 0, SHELL_BY_APP) == 0)
@@ -420,8 +420,6 @@ mediaprg_mount(const char data[], menu_data_t *m)
 	}
 	free(escaped_path);
 	free(cmd);
-
-	ui_sb_clear();
 
 	menus_partial_redraw(m->state);
 	return error;

@@ -123,7 +123,7 @@ read_info_file(int reread)
 	if((fp = os_fopen(info_file, "r")) == NULL)
 		return;
 
-	(void)filemon_from_file(info_file, &vifminfo_mon);
+	(void)filemon_from_file(info_file, FMT_MODIFIED, &vifminfo_mon);
 
 	while((line = read_vifminfo_line(fp, line)) != NULL)
 	{
@@ -373,9 +373,9 @@ read_info_file(int reread)
 static void
 get_sort_info(view_t *view, const char line[])
 {
-	char *const sort = curr_stats.restart_in_progress
-	                 ? ui_view_sort_list_get(view, view->sort)
-	                 : view->sort;
+	signed char *const sort = curr_stats.restart_in_progress
+	                        ? ui_view_sort_list_get(view, view->sort)
+	                        : view->sort;
 
 	int j = 0;
 	while(*line != '\0' && j < SK_COUNT)
@@ -507,11 +507,12 @@ write_info_file(void)
 		filemon_t current_vifminfo_mon;
 		int vifminfo_changed;
 
-		vifminfo_changed = filemon_from_file(info_file, &current_vifminfo_mon) != 0
-		                || !filemon_equal(&vifminfo_mon, &current_vifminfo_mon);
+		vifminfo_changed =
+			filemon_from_file(info_file, FMT_MODIFIED, &current_vifminfo_mon) != 0 ||
+			!filemon_equal(&vifminfo_mon, &current_vifminfo_mon);
 
 		update_info_file(tmp_file, vifminfo_changed);
-		(void)filemon_from_file(tmp_file, &vifminfo_mon);
+		(void)filemon_from_file(tmp_file, FMT_MODIFIED, &vifminfo_mon);
 
 		if(rename_file(tmp_file, info_file) != 0)
 		{
@@ -1429,7 +1430,7 @@ static void
 put_sort_info(FILE *fp, char leading_char, const view_t *view)
 {
 	int i = -1;
-	const char *const sort = ui_view_sort_list_get(view, view->sort_g);
+	const signed char *const sort = ui_view_sort_list_get(view, view->sort_g);
 
 	fputc(leading_char, fp);
 	while(++i < SK_COUNT && abs(sort[i]) <= SK_LAST)

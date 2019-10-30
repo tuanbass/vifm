@@ -1,4 +1,4 @@
-.TH VIFM 1 "June 25, 2019" "vifm 0.10"
+.TH VIFM 1 "August 22, 2019" "vifm 0.10.1"
 .\" ---------------------------------------------------------------------------
 .SH NAME
 .\" ---------------------------------------------------------------------------
@@ -1612,21 +1612,25 @@ remove all user defined commands.
 .BI :com[mand]
 display a menu of user commands.
 .TP
-.BI ":com[mand] beginning"
-display user defined commands that start with the beginning.
+.BI ":com[mand] prefix"
+display user defined commands that start with the prefix.
 .TP
-.BI ":com[mand] name action"
-set a new user command.
+.BI ":com[mand] name action[ &]"
+set or redefine a user command.
 .br
-Trying to use a reserved command name will result in an error message.
+Use :com[mand]! to overwrite a previously set command of the same name.
+Builtin commands can't be redefined.
 .br
-Use :com[mand]! to overwrite a previously set command.
+Unlike in vim, user commands do not have to start with a capital letter.
+However, command name cannot contain numbers or special symbols except for
+single trailing '?' or '!'.
 .br
-Unlike vim user commands do not have to start with a capital letter.
-User commands are run in a shell by default.  To run a command in
-the background you must set it as a background command with & at the end
-of the commands action (:com rm rm %f &).  Command name cannot contain
-numbers or special symbols (except '?' and '!').
+User commands are run in a shell by default (see below for syntax of other
+options).  To run a command in the background you must mark it as a background
+command by adding " &" after the command's action (e.g., `:com rm rm %f &`).
+.br
+User commands of all kinds have macros expanded in them.  See "Command macros"
+section for more information.
 .TP
 .BI ":com[mand] name /pattern"
 set search pattern.
@@ -1644,8 +1648,8 @@ set file name filter (see :filter command description).  For example:
   :command noaudio filter!/.+\.\\(mp3|wav|mp3|flac|ogg|m4a|wma|ape\\)$/i
 .EE
 .TP
-.BI ":com[mand] cmd :commands"
-set kind of an alias for internal command (like in a shell).  Passes range
+.BI ":com[mand] name :commands"
+set kind of an alias for internal commands (like in a shell).  Passes range
 given to alias to an aliased command, so running :%cp after
   :command cp :copy %a
 .br
@@ -3772,46 +3776,63 @@ type: string
 default: "find %s %a \-print , \-type d \\( ! \-readable \-o ! \-executable \\) \-prune"
 .br
 Specifies format for an external command to be invoked by the :find
-command.  The format supports expanding of macros, specific for a particular
-*prg option, and %% sequence for inserting percent sign literally.  This
-option should include the %s macro to specify placement of list of paths to
-search in and %a or %A macro to specify placement of arguments passed to the
-:find command.  If some of the macros are not used, they will be
-implicitly added after a space to the value of the option in the following
-order: %s, %a.  Note that when neither %a nor %A are specified, it's %a which
-is added implicitly.
+command.  The format supports expansion of macros specific for this particular
+option and %% sequence for inserting percent sign literally.  The macros are:
 
-The macros can slightly change their meaning depending on :find command
-arguments.  When the first argument points to an existing directory, %s is
-assigned all arguments and %a/%A are left empty.  Otherwise, %s is assigned
-a dot (".") meaning current directory or list of selected file names, if any.
-%a/%A are assigned arguments when first argument starts with a dash ("\-"),
-otherwise %a gets an escaped version of arguments, prepended by "\-name"
-(on *nix) or "\-iname" (on Windows) predicate.
+  macro   value/meaning
+   %s     literal arguments of :find or
+          list of paths to search in
 
-%a and %A macros contain almost the same value, the difference is that %a can
-be escaped and %A is never escaped.  %A is to be used mainly on Windows, where
-shell escaping is a mess and can break command execution.
+   %A     empty or
+          literal arguments of :find
+   %a     empty or
+          literal arguments of :find or
+          predicate followed by escaped arguments of :find
+   %p     empty or
+          literal arguments of :find or
+          escaped arguments (parameters) of :find
 
-Optional %u or %U macro could be used (if both specified %U is chosen) to force
-redirection to custom or unsorted custom view respectively.
+   %u     redirect output to custom view instead of showing a menu
+   %U     redirect output to unsorted custom view instead of showing a menu
 
-Starting from Windows Server 2003 a where command is available, one can
+Predicate in %a is "\-name" on *nix and "\-iname" on Windows.
+
+If both %u and %U are specified, %U is chosen.
+
+Some macros can be added implicitly:
+ - if %s isn't present, it's appended
+ - if neither of %a, %A and %p is present, %a is appended
+ - if neither of %s, %a, %A and %p is present, %s and %a are appended in this \
+order
+
+The macros slightly change their meaning depending on format of :find's
+arguments:
+ - if the first argument points to an existing directory, %s is assigned all \
+arguments while %a, %A and %p are left empty
+ - otherwise:
+    - %s is assigned a dot (".") meaning current directory or list of \
+selected file names, if any
+    - %a, %A and %p are assigned literal arguments when first argument starts \
+with a dash ("-"), otherwise %a gets an escaped version of the arguments \
+with a predicate and %p contains escaped version of the arguments
+
+Starting with Windows Server 2003 a `where` command is available.  One can
 configure vifm to use it in the following way:
 .EX
 
-  set findprg="where /R %s %A"
+    set findprg="where /R %s %A"
 
 .EE
 As the syntax of this command is rather limited, one can't use :find
-command with selection of more than one item in this case.  The command looks
-for files only completely ignoring directories.
+command with selection of more than one item because the command ignores all
+directory paths except for the last one.
 
 When using find port on Windows, another option is to setup 'findprg' like
 this:
 .EX
 
-  set findprg="find %s %a"
+    set findprg="find %s %a"
+
 .EE
 .TP
 .BI 'followlinks'
@@ -3976,6 +3997,7 @@ type: string
 .br
 default: path to bundled script that supports udevil, udisks and udisks2
          (using udisks2 requires python with dbus module installed)
+         OS X: path points to a python script that uses diskutil
 .br
 {only for *nix}
 .br
@@ -4272,13 +4294,16 @@ Configures the way size is formatted in human-friendly way.
     precision:    i > 0         How many fraction digits to consider.
                   {not set}     Precision of 1 for integer part < 10,
                                 0 otherwise (provides old behaviour).
+    space         {present}     Insert space before unit symbols.
+                                This is the default.
+    nospace       {present}     Do not insert space before unit symbols.
 
 Numbers are rounded from zero.  Trailing zeros are dropped.
 
 Example:
 .EX
 
-  set sizefmt=units:iec,precision:2
+  set sizefmt=units:iec,precision:2,nospace
 .EE
 
 .TP
@@ -4585,8 +4610,15 @@ type: boolean
 .br
 default: true when title can be restored, false otherwise
 .br
-When enabled title of the terminal or terminal multiplexer's window is updated
-according to current location.
+When enabled, title of the terminal or terminal multiplexer's window is
+updated according to current location.  Because not all terminals support
+setting title, this works only if `$TERM` value matches one of the following
+conditions:
+ - equals "xterm" or starts with "xterm-"
+ - equals "rxvt" or starts with "rxvt-"
+ - equals "screen" or starts with "screen-"
+ - equals "aterm"
+ - equals "Eterm"
 .TP
 .BI 'trash'
 type: boolean
@@ -5259,6 +5291,10 @@ executable({expr})    Integer     Checks whether {expr} command available.
 .br
 expand({expr})        String      Expands special keywords in {expr}.
 .br
+extcached({cache}, {path}, {extcmd})
+                      String      Caches output of {extcmd} per {cache} and
+                                  {path} combination.
+.br
 filetype({fnum} [, {resolve}])
                       String      Returns file type from position.
 .br
@@ -5324,7 +5360,25 @@ Examples:
   :echo expand('$PATH')
 .EE
 
-.BI filetype({fnum} [, {resolve}])
+.BI "extcached({cache}, {path}, {extcmd})"
+
+Caches value of {extcmd} external command automatically updating it as
+necessary based on monitoring change date of a {path}.  The cache is
+invalidated when file or its meta-data is updated.  A single path can have
+multiple caches associated with it.
+
+{path} value is normalized, but symbolic links in it aren't resolved.
+
+Example:
+
+.EX
+  " display number and size of blocks actually used by a file or directory
+  set statusline+=" Uses: %{ extcached('uses',
+                                     \ expand('%c'),
+                                     \ expand('stat \-\-format=%%bx%%B %c')) }"
+.EE
+
+.BI "filetype({fnum} [, {resolve}])"
 
 The result is a string, which represents file type and is one of the list:
     exe     executables
@@ -6483,7 +6537,7 @@ See "Startup" section above for more details.
 .TP
 .BI VIFM_FUSE_FILE
 On execution of external commands this variable is set to the full path of file
-used to initiate FUSE mount of the closes mount point from current pane
+used to initiate FUSE mount of the closest mount point from current pane's
 directory up.  It's not set when outside FUSE mount point.  When vifm is used
 inside terminal multiplexer, it tries to set this variable as well (it doesn't
 work this way on its own).

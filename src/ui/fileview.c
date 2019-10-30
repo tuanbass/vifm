@@ -241,8 +241,8 @@ fview_reset(view_t *view)
 	view->real_num_width = 0;
 
 	pthread_mutex_lock(view->timestamps_mutex);
-	view->postponed_redraw = 0;
-	view->postponed_reload = 0;
+	view->need_redraw = 0;
+	view->need_reload = 0;
 	pthread_mutex_unlock(view->timestamps_mutex);
 }
 
@@ -802,8 +802,12 @@ redraw_view(view_t *view)
 	if(curr_stats.need_update == UT_NONE && !curr_stats.restart_in_progress &&
 			window_shows_dirlist(view))
 	{
-		/* Make sure cursor is visible and relevant part of the view is displayed. */
+		/* Make sure cursor is visible and relevant part of the view is
+		 * displayed. */
 		(void)move_curr_line(view);
+		/* Update cursor position cache as it might have been moved outside this
+		 * unit. */
+		(void)cache_cursor_pos(view);
 		/* And then redraw the view unconditionally as requested. */
 		draw_dir_list(view);
 	}
@@ -818,10 +822,27 @@ redraw_current_view(void)
 void
 fview_cursor_redraw(view_t *view)
 {
-	// fview_cursor_redraw() is also called in situations when file list has
-	// changed, so just let fview_position_updated() deal with it.  With a cache
-	// of last position, it should be fine.
+	/* fview_cursor_redraw() is also called in situations when file list has
+	 * changed, so just let fview_position_updated() deal with it.  With a cache
+	 * of last position, it should be fine. */
 	fview_position_updated(view);
+
+	/* Always redrawing the cell won't hurt and will account for the case when
+	 * selection state of item under the cursor has changed. */
+	if(view == other_view)
+	{
+		fview_draw_inactive_cursor(view);
+	}
+	else
+	{
+		if(!ui_view_displays_columns(view))
+		{
+			/* Inactive cell in ls-like view usually takes less space than an active
+			 * one.  Need to clear the cell before drawing over it. */
+			redraw_cell(view, view->top_line, view->curr_line, 0);
+		}
+		redraw_cell(view, view->top_line, view->curr_line, 1);
+	}
 }
 
 void
@@ -1415,7 +1436,7 @@ format_primary_group(int id, const void *data, size_t buf_len, char buf[])
 	const view_t *view = cdt->view;
 	regmatch_t match = get_group_match(&view->primary_group, cdt->entry->name);
 
-	copy_str(buf, MIN(buf_len + 1U, match.rm_eo - match.rm_so + 1U),
+	copy_str(buf, MIN(buf_len + 1U, (size_t)match.rm_eo - match.rm_so + 1U),
 			cdt->entry->name + match.rm_so);
 }
 
@@ -1840,6 +1861,7 @@ cache_cursor_pos(view_t *view)
 
 	if(view->list_pos == view->last_seen_pos &&
 		 view->curr_line == view->last_curr_line &&
+		 view->last_curr_file != NULL &&
 		 strcmp(view->last_curr_file, path) == 0)
 	{
 		return 1;

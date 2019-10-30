@@ -1,4 +1,4 @@
-*vifm-app.txt*    For Vifm version 0.10  Last change: 2019 Jun 25
+*vifm-app.txt*    For Vifm version 0.10.1  Last change: 2019 Aug 22
 
  Email for bugs and suggestions: <xaizek@posteo.net>
 
@@ -1391,29 +1391,37 @@ The builtin commands are:
                                                *vifm-:command* *vifm-:com*
 :com[mand]
     display a menu of user commands.
-:com[mand] beginning
-    display user defined commands that start with the beginning.
+:com[mand] prefix
+    display user defined commands that start with the prefix.
 :com[mand][!] name action[ &]
-    set a new user command.  Trying to use a reserved command name results in
-    an error message.  Use :com[mand]! to overwrite a previously set command.
-    Unlike vim user commands do not have to start with a capital letter.  User
-    commands are run via shell by default.  To run a command in the background
-    you must set it as a background command by appending & at the end of the
-    commands action (e.g., :com rm rm %f &).  Command name cannot contain
-    numbers or special symbols (except single trailing '?' or '!').
+    set or redefine a user command.  Use :com[mand]! to overwrite a
+    previously set command of the same name.  Builtin commands can't be
+    redefined.
+
+    Unlike in vim, user commands do not have to start with a capital letter.
+    However, command name cannot contain numbers or special symbols except
+    for single trailing '?' or '!'.
+
+    User commands are run in a shell by default (see below for other syntax of
+    other options).  To run a command in the background you must mark it as a
+    background command by adding " &" after the command's action
+    (e.g., `:com rm rm %f &`).
+
+    User commands of all kinds have macros expanded in them.  See
+    |vifm-macros| for more information.
 :com[mand] name /pattern
     set search pattern.
 :com[mand] name =pattern
-    set local filter pattern.
+    set local filter value.
 :com[mand] name filter{:filter args}
     set file name filter (see |vifm-:filter|).  For example: >
       " display only audio files
       :command onlyaudio filter/.+\.\(mp3|wav|mp3|flac|ogg|m4a|wma|ape\)$/i
       " display everything except audio files
       :command noaudio filter!/.+\.\(mp3|wav|mp3|flac|ogg|m4a|wma|ape\)$/i
-:com[mand] cmd :commands
-    set kind of an alias for internal command (like in a shell).  Passes range
-    given to the alias to aliased command, so running :%cp after >
+:com[mand] name :commands
+    set kind of an alias for internal commands (like in a shell).  Passes
+    range given to the alias to aliased command, so running :%cp after >
       :command cp :copy %a
 <    equals >
       :%copy
@@ -3102,7 +3110,7 @@ Sets characters used to fill borders.
     vborder:c     ' '             left, middle and right vertical borders
 
 If value is omitted, its default value is used.  Example: >
- set fillchars=vborder:.
+    set fillchars=vborder:.
 <
                                                *vifm-'findprg'*
 findprg
@@ -3110,38 +3118,50 @@ type: string
 default: "find %s %a -print , -type d \( ! -readable -o ! -executable \) -prune"
 
 Specifies format for an external command to be invoked by the |vifm-:find|
-command.  The format supports expanding of macros, specific for a particular
-*prg option, and %% sequence for inserting percent sign literally.  This
-option should include the %s macro to specify placement of list of paths to
-search in and %a or %A macro to specify placement of arguments passed to the
-|vifm-:find| command.  If some of the macros are not used, they will be
-implicitly added after a space to the value of the option in the following
-order: %s, %a.  Note that when neither %a nor %A are specified, it's %a which
-is added implicitly.
+command.  The format supports expansion of macros specific for this particular
+option and %% sequence for inserting percent sign literally.  The macros are:
 
-The macros can slightly change their meaning depending on |vifm-:find| command
-arguments.  When the first argument points to an existing directory, %s is
-assigned all arguments and %a/%A are left empty.  Otherwise, %s is assigned
-a dot (".") meaning current directory or list of selected file names, if any.
-%a/%A are assigned arguments when first argument starts with a dash ("-"),
-otherwise %a gets an escaped version of arguments, prepended by "-name"
-(on *nix) or "-iname" (on Windows) predicate.
+  macro   value/meaning~
+   %s     literal arguments of :find or
+          list of paths to search in
 
-%a and %A macros contain almost the same value, the difference is that %a can
-be escaped and %A is never escaped.  %A is to be used mainly on Windows, where
-shell escaping is a mess and can break command execution.
+   %A     empty or
+          literal arguments of :find
+   %a     empty or
+          literal arguments of :find or
+          predicate followed by escaped arguments of :find
 
-Optional %u or %U macro could be used (if both specified %U is chosen) to
-force redirection to custom or unsorted custom view respectively.
+   %u     redirect output to custom view instead of showing a menu
+   %U     redirect output to unsorted custom view instead of showing a menu
 
-Starting from Windows Server 2003 a where command is available, one can
+Predicate in %a is "-name" on *nix and "-iname" on Windows.
+
+If both %u and %U are specified, %U is chosen.
+
+Some macros can be added implicitly:
+ - if %s isn't present, it's appended
+ - if neither of %a and %A is present, %a is appended
+ - if neither of %s, %a and %A is present, %s and %a are appended in this
+   order
+
+The macros slightly change their meaning depending on format of :find's
+arguments:
+ - if the first argument points to an existing directory, %s is assigned all
+   arguments while %a and %A are left empty
+ - otherwise:
+    - %s is assigned a dot (".") meaning current directory or list of
+      selected file names, if any
+    - %a and %A are assigned literal arguments when first argument starts
+      with a dash ("-"), otherwise %a gets an escaped version of the arguments
+      with a predicate
+
+Starting with Windows Server 2003 a `where` command is available.  One can
 configure vifm to use it in the following way: >
-
     set findprg="where /R %s %A"
 <
 As the syntax of this command is rather limited, one can't use |vifm-:find|
-command with selection of more than one item in this case.  The command looks
-for files only completely ignoring directories.
+command with selection of more than one item because the command ignores all
+directory paths except for the last one.
 
 When using find port on Windows, another option is to setup 'findprg' like
 this: >
@@ -3303,6 +3323,7 @@ mediaprg
 type: string
 default: path to bundled script that supports udevil, udisks and udisks2
          (using udisks2 requires python with dbus module installed)
+         OS X: path points to a python script that uses diskutil
 
 Specifies command to be used to manage media devices.  Used by |vifm-:media|
 command.
@@ -3562,11 +3583,14 @@ Configures the way size is formatted in human-friendly way.
     precision:    i > 0         How many fraction digits to consider.
                   {not set}     Precision of 1 for integer part < 10,
                                 0 otherwise (provides old behaviour).
+    space         {present}     Insert space before unit symbols.
+                                This is the default.
+    nospace       {present}     Do not insert space before unit symbols.
 
 Numbers are rounded from zero.  Trailing zeros are dropped.
 
 Example: >
- set sizefmt=units:iec,precision:2
+ set sizefmt=units:iec,precision:2,nospace
 <
                                                *vifm-'slowfs'*
                                                {only for *nix}
@@ -3852,8 +3876,15 @@ title
 type: boolean
 default: true when title can be restored, false otherwise
 
-When enabled title of the terminal or terminal multiplexer's window is
-updated according to current location.
+When enabled, title of the terminal or terminal multiplexer's window is
+updated according to current location.  Because not all terminals support
+setting title, this works only if `$TERM` value matches one of the following
+conditions:
+ - equals "xterm" or starts with "xterm-"
+ - equals "rxvt" or starts with "rxvt-"
+ - equals "screen" or starts with "screen-"
+ - equals "aterm"
+ - equals "Eterm"
 
                                                *vifm-'tuioptions'* *vifm-'to'*
 tuioptions to
@@ -4361,6 +4392,9 @@ USAGE                 RESULT      DESCRIPTION	~
 chooseopt({opt})      String      Queries choose parameters passed on startup.
 executable({expr})    Integer     Checks whether {expr} command available.
 expand({expr})        String      Expands special keywords in {expr}.
+extcached({cache}, {path}, {extcmd})
+                      String      Caches output of {extcmd} per {cache} and
+                                  {path} combination.
 filetype({fnum} [, {resolve}])
                       String      Returns file type from position.
 fnameescape({expr})   String      Escapes {expr} for use in a :command.
@@ -4413,6 +4447,20 @@ Examples: >
   " $PATH environment variable (same as `:echo $PATH`)
   :echo expand('$PATH')
 
+extcached({cache}, {path}, {extcmd})           *vifm-extcached()*
+
+Caches value of {extcmd} external command automatically updating it as
+necessary based on monitoring change date of a {path}.  The cache is
+invalidated when file or its meta-data is updated.  A single path can have
+multiple caches associated with it.
+
+{path} value is normalized, but symbolic links in it aren't resolved.
+
+Example: >
+  " display number and size of blocks actually used by a file or directory
+  set statusline+=" Uses: %{ extcached('uses',
+                                     \ expand('%c'),
+                                     \ expand('stat --format=%%bx%%B %c')) }"
 
 filetype({fnum} [, {resolve}])                 *vifm-filetype()*
 
@@ -5425,7 +5473,7 @@ See |vifm-startup| section above for more details.
 
                                                *vifm-$VIFM_FUSE_FILE*
 On execution of external commands this variable is set to the full path of file
-used to initiate FUSE mount of the closes mount point from current pane
+used to initiate FUSE mount of the closest mount point from current pane's
 directory up.  It's not set when outside FUSE mount point.  When vifm is used
 inside terminal multiplexer, it tries to set this variable as well (it doesn't
 work this way on its own).

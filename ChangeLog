@@ -1,13 +1,58 @@
-0.10 to current
+0.10.1 to current
+
+	Made documentation of :command more comprehensible.
+
+	Explicitly documented that macros are expanded in user defined commands.
+	Thanks to gcmt.
+
+	Clean up tests directory on "make clean" in the top of the tree.
+
+	Fixed symbolic link as FUSE mount point not being removed on systems
+	with FreeBSD kernel.  Thanks to Ondrej Novy (a.k.a. onovy).
+
+	Fixed confirmation dialog not working on systems with unsigned char.
+	Thanks to nandox.
+
+0.10.1-beta to 0.10.1 (2019-07-29)
+
+	Added "space" and "nospace" values to 'sizefmt' option.  Patch by
+	zsugabubus.
+
+	Added autodetection of *.vifm files as files with "vifm" filetype to the
+	plugin.  Patch by Anton Kochkov (a.k.a. XVilka).
+
+	Made udisks2 part of vifm-media script compatible with python3.  Patch by
+	zsugabubus.
+
+	Assume that any $TERM value that starts with "xterm-", "rxvt-" or
+	"screen-" supports terminal title.  Thanks to Matthias
+	Braun (a.k.a. mb720).
+
+	Documented $TERM values for which 'title' option works.  Thanks to Matthias
+	Braun (a.k.a. mb720).
+
+	Fixed assertion failure on resetting 'classify' option when 'millerview'
+	is on (reproducing it is harder than that, but that's the idea).  Patch by
+	zsugabubus.
+
+	Fixed info= not having higher priority than label= in 'mediaprg'.
+
+	Fixed item not being redrawn on the screen after pressing t key to toggle
+	its selection.
+
+	Fixed missing screen update after some startup commands.  Thanks to
+	zsugabubus.
+
+0.10 to 0.10.1-beta (2019-07-15)
 
 	Added example of using xsel to sample vifmrc file.  Thanks to
 	chelovechishko.
 
-	Added fileroot view column, which displays full name of directories and
+	Added "fileroot" view column, which displays full name of directories and
 	symbolic links to directories and only root of name for everything else.
 	Thanks to chelovechishko.
 
-	Added :cds command that navigates to path obtained by substitution in
+	Added :cds command that navigates to path obtained by substitution in the
 	current path.  Thanks to j-xella.
 
 	Added one more invocation format of :colorscheme command, which picks the
@@ -26,7 +71,7 @@
 	line instead of full path.  Thanks to chelovechishko.
 
 	Added caching to quickview for a single file to avoid fileviewer being
-	called more than needed.  Thanks to agguser.
+	called more often than needed.  Thanks to agguser.
 
 	Added "rpreview:" key to 'milleroptions' option that allows enabling
 	preview of files.  Thanks to Svadkos and Tom Jansen.
@@ -65,8 +110,8 @@
 	Tykin.
 
 	Added FUSE_MOUNT3 filetype format, which is equivalent to FUSE_MOUNT, but
-	doesn't perform unmounting.  Helpful to use something like avfs.  Thanks
-	to Jose Riha (a.k.a. jose1711).
+	doesn't perform unmounting.  Helpful to use with something like avfs.
+	Thanks to Jose Riha (a.k.a. jose1711).
 
 	Added "info=" field to parser of 'mediaprg' output.  It provides custom
 	message for the media.  Patch by zsugabubus.
@@ -75,6 +120,18 @@
 	devices.  Patch by zsugabubus.
 
 	Added decorations to :media menu.  Patch by zsugabubus.
+
+	Added extcached() builtin function, which can be used to improve
+	performance of file queries by caching results of external commands.
+	Thanks to Matthias Braun (a.k.a. mb720).
+
+	Added %p macro to 'findprg' option.  It works as a mix between %a and %A
+	macros: usually contains arguments passed to :find command, but unlike %a
+	doesn't include any predicates.  Thanks to Sitaram Chamarty and Tuan
+	Bui (a.k.a. tuanbass).
+
+	Added vifm-media-osx script that is configured to be used (via 'mediaprg')
+	on OS X.  Patch by Von Welch.
 
 	Resolve symbolic links for mime-type matchers.  Thanks to Vigi.
 
@@ -154,9 +211,6 @@
 	Removed empty line from :file and similar menus for case when vifm was
 	configured with --disable-desktop-files flag (second time).
 
-	Print "Mounting..."/"Unmounting..." message during the corresponding
-	process in the :media menu.
-
 	Document more details about expansion of FUSE macros.
 
 	Properly remove FUSE mount points if they are symbolic links.
@@ -179,6 +233,8 @@
 
 	Show empty lines in :media only if there is enough vertical space.  Patch
 	by zsugabubus.
+
+	Make documentation of 'findprg' more readable.
 
 	Fixed `:tabnew ..` not working due to use of uninitialized data.
 
@@ -240,7 +296,7 @@
 	Fixed issues (could lead to crash) on resizing on Windows.  Thanks to Tim
 	Schaeffer (a.k.a. Numeromancer).
 
-	Fixed wrapped lines in quickview/view mode sometimes loosing their
+	Fixed wrapped lines in quickview/view mode sometimes losing their
 	colorization.
 
 	Fixed occasional test failures due to use of uninitialized curses.  Thanks
@@ -289,6 +345,13 @@
 
 	Fixed reading data past initialized region on printing control message of
 	dialogs.  Patch by zsugabubus.
+
+	Fixed syntax highlighting of angle-bracket notation inside right-hand side
+	of mappings that contain some :commands (they were highlighted, but for
+	fewer number of commands).
+
+	Fixed missing syntax highlighting of :let command in right-hand side of
+	mappings.
 
 0.10-beta to 0.10 (2018-11-11)
 

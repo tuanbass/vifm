@@ -28,8 +28,10 @@
 
 #ifndef __APPLE__
 #define SAMPLE_VIFMRC "vifmrc"
+#define SAMPLE_MEDIAPRG "vifm-media"
 #else
 #define SAMPLE_VIFMRC "vifmrc-osx"
+#define SAMPLE_MEDIAPRG "vifm-media-osx"
 #endif
 
 #ifdef _WIN32
@@ -166,7 +168,7 @@ cfg_init(void)
 	cfg.grep_prg = strdup("grep -n -H -I -r %i %a %s");
 	cfg.locate_prg = strdup("locate %a");
 	cfg.delete_prg = strdup("");
-	cfg.media_prg = format_str("%s/vifm-media", get_installed_data_dir());
+	cfg.media_prg = format_str("%s/" SAMPLE_MEDIAPRG, get_installed_data_dir());
 
 	cfg.tail_tab_line_paths = 0;
 	cfg.trunc_normal_sb_msgs = 0;
@@ -221,6 +223,7 @@ cfg_init(void)
 	cfg.sizefmt.base = 1024;
 	cfg.sizefmt.precision = 0;
 	cfg.sizefmt.ieci_prefixes = 0;
+	cfg.sizefmt.space = 1;
 
 	cfg.pane_tabs = 0;
 	cfg.show_tab_line = STL_MULTIPLE;
